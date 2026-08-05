@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pemindai Kode Batang Mobile</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- HTML5-QRCode Library for Web Barcode Scanning -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Google Fonts (Inter) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Laser Scanning Animation */
+    .scan-region {
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .scanner-line {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, rgba(239, 68, 68, 0) 0%, rgba(239, 68, 68, 1) 50%, rgba(239, 68, 68, 0) 100%);
+      box-shadow: 0 0 12px 2px rgba(239, 68, 68, 0.8);
+      animation: scanAnimation 2s infinite ease-in-out;
+      z-index: 10;
+    }
+
+    @keyframes scanAnimation {
+      0% { top: 5%; }
+      50% { top: 90%; }
+      100% { top: 5%; }
+    }
+
+    /* Customize HTML5 QRCode video container */
+    #reader {
+      width: 100% !important;
+      border: none !important;
+      border-radius: 1rem;
+      overflow: hidden;
+      background-color: #000;
+    }
+
+    #reader video {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+      border-radius: 1rem;
+    }
+
+    /* Dynamic Toast Notification */
+    #toast {
+      transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between pb-10">
+
+  <!-- Navigation / Header -->
+  <header class="bg-slate-800/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-700/50 px-4 py-3">
+    <div class="max-w-md mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+          <i class="fa-solid fa-barcode text-lg"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-base text-white leading-tight">ScanKode Pro</h1>
+          <p class="text-xs text-slate-400">Pemindai Barcode iPhone & Android</p>
+        </div>
+      </div>
+      <button id="btn-toggle-sound" class="w-10 h-10 rounded-xl bg-slate-700/60 hover:bg-slate-700 flex items-center justify-center text-slate-300 transition-colors">
+        <i class="fa-solid fa-volume-high text-sm" id="sound-icon"></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto w-full px-4 pt-4 flex-1 flex flex-col gap-5">
+
+    <!-- Camera Viewport Card -->
+    <section class="bg-slate-800 border border-slate-700/60 rounded-2xl p-4 shadow-xl flex flex-col gap-3">
+      <div class="flex items-center justify-between px-1">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Kamera Aktif
+        </span>
+        <span id="scan-status" class="text-xs text-indigo-400 font-medium">Siap Memindai</span>
+      </div>
+
+      <!-- Scanner Area -->
+      <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-black flex items-center justify-center border border-slate-700">
+        <!-- HTML5 QR Code Container -->
+        <div id="reader" class="w-full h-full"></div>
+
+        <!-- Laser overlay when active -->
+        <div id="scanner-laser" class="scanner-line hidden"></div>
+
+        <!-- Camera Off Placeholder -->
+        <div id="camera-placeholder" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-850 p-6 text-center gap-3">
+          <div class="w-16 h-16 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400">
+            <i class="fa-solid fa-camera text-2xl"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold text-slate-200">Kamera Nonaktif</h3>
+            <p class="text-xs text-slate-400 mt-1">Tekan tombol di bawah untuk mengaktifkan pemindai barcode iPhone Anda.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Camera Controls -->
+      <div class="grid grid-cols-3 gap-2 mt-1">
+        <button id="btn-start-camera" class="col-span-2 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-semibold text-sm transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-play text-xs"></i>
+          <span id="btn-start-text">Mulai Pemindaian</span>
+        </button>
+
+        <button id="btn-switch-camera" disabled class="py-3 px-3 rounded-xl bg-slate-700 opacity-50 text-slate-300 font-medium text-xs flex items-center justify-center gap-1.5 transition-all">
+          <i class="fa-solid fa-rotate text-sm"></i>
+          <span>Ubah</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Input Result Section -->
+    <section class="bg-slate-800 border border-slate-700/60 rounded-2xl p-4 shadow-xl flex flex-col gap-3">
+      <label for="barcode-input" class="text-xs font-semibold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+        <i class="fa-solid fa-square-poll-vertical"></i> Hasil Pemindaian Kode
+      </label>
+
+      <div class="relative flex items-center">
+        <input 
+          type="text" 
+          id="barcode-input" 
+          placeholder="Hasil barcode akan langsung muncul di sini..." 
+          class="w-full bg-slate-900/90 border border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-white font-mono text-base rounded-xl px-4 py-3.5 pr-12 outline-none transition-all placeholder:text-slate-500 placeholder:font-sans placeholder:text-xs"
+        />
+        <button id="btn-clear-input" class="absolute right-3 text-slate-500 hover:text-slate-300 p-1.5 rounded-lg transition-colors hidden">
+          <i class="fa-solid fa-circle-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Quick Actions for Scanned Result -->
+      <div class="grid grid-cols-3 gap-2">
+        <button id="btn-copy" class="py-2.5 px-3 bg-slate-700 hover:bg-slate-650 active:bg-slate-600 rounded-xl text-slate-200 text-xs font-medium flex items-center justify-center gap-2 transition-all">
+          <i class="fa-regular fa-copy text-indigo-400 text-sm"></i>
+          <span>Salin</span>
+        </button>
+
+        <button id="btn-search" class="py-2.5 px-3 bg-slate-700 hover:bg-slate-650 active:bg-slate-600 rounded-xl text-slate-200 text-xs font-medium flex items-center justify-center gap-2 transition-all">
+          <i class="fa-solid fa-magnifying-glass text-emerald-400 text-sm"></i>
+          <span>Cari Google</span>
+        </button>
+
+        <button id="btn-save-manual" class="py-2.5 px-3 bg-slate-700 hover:bg-slate-650 active:bg-slate-600 rounded-xl text-slate-200 text-xs font-medium flex items-center justify-center gap-2 transition-all">
+          <i class="fa-solid fa-bookmark text-amber-400 text-sm"></i>
+          <span>Simpan</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- iOS Tip Card -->
+    <div id="ios-info-box" class="bg-indigo-950/40 border border-indigo-800/40 rounded-xl p-3 flex items-start gap-3 text-xs text-indigo-200">
+      <i class="fa-solid fa-circle-info text-indigo-400 text-base mt-0.5 shrink-0"></i>
+      <div>
+        <p class="font-semibold mb-0.5">Petunjuk Safari / iPhone:</p>
+        <p class="text-indigo-300/80 leading-relaxed">Pastikan Anda telah memberikan izin akses kamera saat diminta. Jika kamera tidak terbuka, periksa pengaturan privasi Safari di iPhone Anda.</p>
+      </div>
+    </div>
+
+    <!-- Scan History Container -->
+    <section class="bg-slate-800 border border-slate-700/60 rounded-2xl p-4 shadow-xl flex flex-col gap-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+          <i class="fa-solid fa-history"></i> Riwayat Kode (<span id="history-count">0</span>)
+        </h2>
+        <div class="flex items-center gap-2">
+          <button id="btn-export-csv" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 transition-colors">
+            <i class="fa-solid fa-file-csv"></i> Ekspor
+          </button>
+          <span class="text-slate-600">|</span>
+          <button id="btn-clear-history" class="text-xs text-rose-400 hover:text-rose-300 font-medium flex items-center gap-1 transition-colors">
+            <i class="fa-solid fa-trash-can"></i> Hapus
+          </button>
+        </div>
+      </div>
+
+      <!-- History List -->
+      <div id="history-list" class="flex flex-col gap-2 max-h-52 overflow-y-auto pr-1">
+        <div id="empty-history" class="text-center py-6 text-slate-500 text-xs flex flex-col items-center gap-1">
+          <i class="fa-solid fa-inbox text-2xl text-slate-600 mb-1"></i>
+          <span>Belum ada riwayat kode batang</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Toast Notification Modal -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 border border-slate-700 text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 pointer-events-none opacity-0 transform translate-y-4 z-50">
+    <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
+    <span id="toast-msg">Pesan notifikasi</span>
+  </div>
+
+  <script>
+    // State Variables
+    let html5QrCode = null;
+    let isScanning = false;
+    let soundEnabled = true;
+    let currentCameraId = null;
+    let availableCameras = [];
+    let historyData = JSON.parse(localStorage.getItem('barcode_history') || '[]');
+    let audioCtx = null;
+
+    // DOM Elements
+    const barcodeInput = document.getElementById('barcode-input');
+    const btnStartCamera = document.getElementById('btn-start-camera');
+    const btnStartText = document.getElementById('btn-start-text');
+    const btnSwitchCamera = document.getElementById('btn-switch-camera');
+    const btnClearInput = document.getElementById('btn-clear-input');
+    const btnCopy = document.getElementById('btn-copy');
+    const btnSearch = document.getElementById('btn-search');
+    const btnSaveManual = document.getElementById('btn-save-manual');
+    const btnToggleSound = document.getElementById('btn-toggle-sound');
+    const soundIcon = document.getElementById('sound-icon');
+    const btnExportCsv = document.getElementById('btn-export-csv');
+    const btnClearHistory = document.getElementById('btn-clear-history');
+    const historyList = document.getElementById('history-list');
+    const emptyHistory = document.getElementById('empty-history');
+    const historyCount = document.getElementById('history-count');
+    const cameraPlaceholder = document.getElementById('camera-placeholder');
+    const scannerLaser = document.getElementById('scanner-laser');
+    const scanStatus = document.getElementById('scan-status');
+
+    // Web Audio Beep Generator (iOS Compatible)
+    function playBeepSound() {
+      if (!soundEnabled) return;
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1200, audioCtx.currentTime); // Pitch
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.15);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.15);
+      } catch (e) {
+        console.warn("Audio error:", e);
+      }
+    }
+
+    // Show Toast Message
+    function showToast(message, iconClass = "fa-solid fa-circle-check text-emerald-400") {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toast-msg');
+      const toastIcon = document.getElementById('toast-icon');
+
+      toastMsg.textContent = message;
+      toastIcon.className = `${iconClass} text-sm`;
+
+      toast.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
+      }, 2500);
+    }
+
+    // Trigger Mobile Haptic Feedback
+    function triggerVibration() {
+      if ('vibrate' in navigator) {
+        navigator.vibrate(100);
+      }
+    }
+
+    // Handle Successful Barcode Scan
+    function onScanSuccess(decodedText, decodedResult) {
+      // Put code into the input field
+      barcodeInput.value = decodedText;
+      btnClearInput.classList.remove('hidden');
+
+      // Audio & Vibration Feedback
+      playBeepSound();
+      triggerVibration();
+
+      // UI status alert
+      scanStatus.textContent = "Kode Terdeteksi!";
+      scanStatus.className = "text-xs text-emerald-400 font-bold animate-bounce";
+      setTimeout(() => {
+        scanStatus.textContent = "Memindai...";
+        scanStatus.className = "text-xs text-indigo-400 font-medium";
+      }, 1500);
+
+      // Save to history
+      saveToHistory(decodedText, decodedResult?.result?.format?.formatName || 'BARCODE');
+
+      showToast("Kode berhasil dipindai!");
+    }
+
+    // Initialize & Start Camera
+    async function startScanner() {
+      try {
+        if (!html5QrCode) {
+          html5QrCode = new Html5Qrcode("reader");
+        }
+
+        // Get Available Cameras
+        availableCameras = await Html5Qrcode.getCameras();
+        
+        if (!availableCameras || availableCameras.length === 0) {
+          showToast("Kamera tidak ditemukan di perangkat ini", "fa-solid fa-circle-xmark text-rose-400");
+          return;
+        }
+
+        // Enable switch camera button if multiple cameras exist
+        if (availableCameras.length > 1) {
+          btnSwitchCamera.disabled = false;
+          btnSwitchCamera.classList.remove('opacity-50');
+        }
+
+        // Config for scanning barcodes (1D & 2D)
+        const config = {
+          fps: 15,
+          qrbox: (viewfinderWidth, viewfinderHeight) => {
+            // Rectangular scanning area optimal for long 1D barcodes
+            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            return {
+              width: Math.floor(viewfinderWidth * 0.85),
+              height: Math.floor(minEdge * 0.45)
+            };
+          },
+          aspectRatio: 1.333333
+        };
+
+        // Prefer Rear Camera on iPhone/Mobile
+        const cameraConfig = currentCameraId 
+          ? { deviceId: { exact: currentCameraId } }
+          : { facingMode: "environment" };
+
+        cameraPlaceholder.classList.add('hidden');
+        scannerLaser.classList.remove('hidden');
+
+        await html5QrCode.start(
+          cameraConfig,
+          config,
+          onScanSuccess,
+          () => {} // Silent scan error callback
+        );
+
+        isScanning = true;
+        btnStartText.textContent = "Hentikan Pemindai";
+        btnStartCamera.classList.replace('bg-indigo-600', 'bg-rose-600');
+        btnStartCamera.classList.replace('hover:bg-indigo-500', 'hover:bg-rose-500');
+        scanStatus.textContent = "Memindai...";
+
+      } catch (err) {
+        console.error("Camera start error:", err);
+        cameraPlaceholder.classList.remove('hidden');
+        scannerLaser.classList.add('hidden');
+        showToast("Gagal mengakses kamera. Periksa izin Safari/Browser.", "fa-solid fa-triangle-exclamation text-amber-400");
+      }
+    }
+
+    // Stop Camera Scanner
+    async function stopScanner() {
+      if (html5QrCode && isScanning) {
+        try {
+          await html5QrCode.stop();
+          isScanning = false;
+          btnStartText.textContent = "Mulai Pemindaian";
+          btnStartCamera.classList.replace('bg-rose-600', 'bg-indigo-600');
+          btnStartCamera.classList.replace('hover:bg-rose-500', 'hover:bg-indigo-500');
+          cameraPlaceholder.classList.remove('hidden');
+          scannerLaser.classList.add('hidden');
+          scanStatus.textContent = "Nonaktif";
+          scanStatus.className = "text-xs text-slate-400 font-medium";
+        } catch (err) {
+          console.error("Stop error:", err);
+        }
+      }
+    }
+
+    // Toggle Camera Start / Stop
+    btnStartCamera.addEventListener('click', () => {
+      // Initialize Web Audio Context on user gesture for iOS
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      if (isScanning) {
+        stopScanner();
+      } else {
+        startScanner();
+      }
+    });
+
+    // Switch Camera (Rear <-> Front)
+    btnSwitchCamera.addEventListener('click', async () => {
+      if (availableCameras.length < 2) return;
+
+      if (isScanning) {
+        await stopScanner();
+      }
+
+      // Cycle camera index
+      const currentIndex = availableCameras.findIndex(c => c.id === currentCameraId);
+      const nextIndex = (currentIndex + 1) % availableCameras.length;
+      currentCameraId = availableCameras[nextIndex].id;
+
+      await startScanner();
+      showToast("Kamera berhasil diubah");
+    });
+
+    // Input Event Handling
+    barcodeInput.addEventListener('input', () => {
+      if (barcodeInput.value.trim() !== '') {
+        btnClearInput.classList.remove('hidden');
+      } else {
+        btnClearInput.classList.add('hidden');
+      }
+    });
+
+    btnClearInput.addEventListener('click', () => {
+      barcodeInput.value = '';
+      btnClearInput.classList.add('hidden');
+      barcodeInput.focus();
+    });
+
+    // Copy to Clipboard (Safari & iOS Fallback Safe)
+    btnCopy.addEventListener('click', () => {
+      const text = barcodeInput.value.trim();
+      if (!text) {
+        showToast("Kolom input masih kosong", "fa-solid fa-circle-exclamation text-amber-400");
+        return;
+      }
+
+      // Clipboard handling
+      barcodeInput.select();
+      barcodeInput.setSelectionRange(0, 99999); // Mobile Safari selection
+      
+      try {
+        document.execCommand('copy');
+        showToast("Kode berhasil disalin!");
+      } catch (err) {
+        showToast("Gagal menyalin kode", "fa-solid fa-circle-xmark text-rose-400");
+      }
+    });
+
+    // Search on Google
+    btnSearch.addEventListener('click', () => {
+      const text = barcodeInput.value.trim();
+      if (!text) {
+        showToast("Kolom input masih kosong", "fa-solid fa-circle-exclamation text-amber-400");
+        return;
+      }
+      const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(text)}`;
+      window.open(searchUrl, '_blank');
+    });
+
+    // Save Manual Input to History
+    btnSaveManual.addEventListener('click', () => {
+      const text = barcodeInput.value.trim();
+      if (!text) {
+        showToast("Masukkan kode terlebih dahulu", "fa-solid fa-circle-exclamation text-amber-400");
+        return;
+      }
+      saveToHistory(text, 'MANUAL');
+      showToast("Kode disimpan ke riwayat!");
+    });
+
+    // Sound Toggle
+    btnToggleSound.addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+      if (soundEnabled) {
+        soundIcon.className = "fa-solid fa-volume-high text-sm";
+        showToast("Suara bip diaktifkan");
+      } else {
+        soundIcon.className = "fa-solid fa-volume-xmark text-sm text-slate-500";
+        showToast("Suara bip dinonaktifkan");
+      }
+    });
+
+    // Save to LocalStorage History
+    function saveToHistory(code, format = 'BARCODE') {
+      // Avoid duplicate consecutive entries if same code
+      if (historyData.length > 0 && historyData[0].code === code) {
+        return;
+      }
+
+      const newItem = {
+        id: Date.now(),
+        code: code,
+        format: format,
+        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        date: new Date().toLocaleDateString('id-ID')
+      };
+
+      historyData.unshift(newItem);
+      if (historyData.length > 50) historyData.pop(); // Limit to 50 items
+
+      localStorage.setItem('barcode_history', JSON.stringify(historyData));
+      renderHistory();
+    }
+
+    // Render History Items UI
+    function renderHistory() {
+      historyCount.textContent = historyData.length;
+
+      if (historyData.length === 0) {
+        emptyHistory.classList.remove('hidden');
+        historyList.innerHTML = '';
+        historyList.appendChild(emptyHistory);
+        return;
+      }
+
+      emptyHistory.classList.add('hidden');
+      historyList.innerHTML = '';
+
+      historyData.forEach((item) => {
+        const itemEl = document.createElement('div');
+        itemEl.className = "bg-slate-900/80 border border-slate-700/70 rounded-xl p-3 flex items-center justify-between gap-2 hover:border-slate-600 transition-colors";
+        
+        itemEl.innerHTML = `
+          <div class="flex flex-col min-w-0 flex-1">
+            <span class="font-mono text-sm font-semibold text-slate-100 truncate">${escapeHtml(item.code)}</span>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span class="text-[10px] uppercase font-bold text-indigo-400 bg-indigo-950/80 px-1.5 py-0.5 rounded border border-indigo-800/50">${item.format}</span>
+              <span class="text-[11px] text-slate-400">${item.timestamp}</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-1">
+            <button onclick="useHistoryCode('${escapeHtml(item.code)}')" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Gunakan">
+              <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+            </button>
+            <button onclick="deleteHistoryItem(${item.id})" class="p-2 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors" title="Hapus">
+              <i class="fa-solid fa-xmark text-xs"></i>
+            </button>
+          </div>
+        `;
+
+        historyList.appendChild(itemEl);
+      });
+    }
+
+    // Helper: Escapes HTML to prevent injection
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, function(m) {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        }[m];
+      });
+    }
+
+    // Use Code from History
+    window.useHistoryCode = function(code) {
+      barcodeInput.value = code;
+      btnClearInput.classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      showToast("Kode dimasukkan ke kolom input");
+    };
+
+    // Delete Item from History
+    window.deleteHistoryItem = function(id) {
+      historyData = historyData.filter(item => item.id !== id);
+      localStorage.setItem('barcode_history', JSON.stringify(historyData));
+      renderHistory();
+      showToast("Item dihapus dari riwayat");
+    };
+
+    // Clear All History
+    btnClearHistory.addEventListener('click', () => {
+      if (historyData.length === 0) return;
+      historyData = [];
+      localStorage.removeItem('barcode_history');
+      renderHistory();
+      showToast("Seluruh riwayat dibersihkan");
+    });
+
+    // Export History as CSV
+    btnExportCsv.addEventListener('click', () => {
+      if (historyData.length === 0) {
+        showToast("Tidak ada riwayat untuk diekspor", "fa-solid fa-circle-exclamation text-amber-400");
+        return;
+      }
+
+      let csvContent = "data:text/csv;charset=utf-8,Kode,Format,Waktu,Tanggal\n";
+      historyData.forEach(row => {
+        csvContent += `"${row.code}","${row.format}","${row.timestamp}","${row.date}"\n`;
+      });
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `barcode_history_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      showToast("File CSV berhasil diunduh");
+    });
+
+    // On Load Initialization
+    window.addEventListener('load', () => {
+      renderHistory();
+    });
+  </script>
+</body>
+</html>
