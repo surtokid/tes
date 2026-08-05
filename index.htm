@@ -91,60 +91,27 @@
 
   <main class="max-w-md mx-auto w-full px-4 pt-4 flex-1 flex flex-col gap-5">
 
-    <!-- Camera Viewport Card -->
-    <section class="bg-slate-800 border border-slate-700/60 rounded-2xl p-4 shadow-xl flex flex-col gap-3">
-      <div class="flex items-center justify-between px-1">
-        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Kamera Aktif
-        </span>
-        <span id="scan-status" class="text-xs text-indigo-400 font-medium">Siap Memindai</span>
+    <!-- Input Result & Scan Trigger Section -->
+    <section class="bg-slate-800 border border-slate-700/60 rounded-2xl p-5 shadow-xl flex flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <label for="barcode-input" class="text-xs font-semibold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+          <i class="fa-solid fa-barcode"></i> Hasil Pemindaian Kode
+        </label>
+        <span id="scan-status" class="text-xs text-slate-400 font-medium">Siap Memindai</span>
       </div>
 
-      <!-- Scanner Area -->
-      <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-black flex items-center justify-center border border-slate-700">
-        <!-- HTML5 QR Code Container -->
-        <div id="reader" class="w-full h-full"></div>
+      <!-- Main Trigger Scan Button -->
+      <button id="btn-open-scanner" class="w-full py-4 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-semibold text-base transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-3">
+        <i class="fa-solid fa-camera text-lg"></i>
+        <span>Scan Kode Batang</span>
+      </button>
 
-        <!-- Laser overlay when active -->
-        <div id="scanner-laser" class="scanner-line hidden"></div>
-
-        <!-- Camera Off Placeholder -->
-        <div id="camera-placeholder" class="absolute inset-0 flex flex-col items-center justify-center bg-slate-850 p-6 text-center gap-3">
-          <div class="w-16 h-16 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400">
-            <i class="fa-solid fa-camera text-2xl"></i>
-          </div>
-          <div>
-            <h3 class="text-sm font-semibold text-slate-200">Kamera Nonaktif</h3>
-            <p class="text-xs text-slate-400 mt-1">Tekan tombol di bawah untuk mengaktifkan pemindai barcode iPhone Anda.</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Camera Controls -->
-      <div class="grid grid-cols-3 gap-2 mt-1">
-        <button id="btn-start-camera" class="col-span-2 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-semibold text-sm transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
-          <i class="fa-solid fa-play text-xs"></i>
-          <span id="btn-start-text">Mulai Pemindaian</span>
-        </button>
-
-        <button id="btn-switch-camera" disabled class="py-3 px-3 rounded-xl bg-slate-700 opacity-50 text-slate-300 font-medium text-xs flex items-center justify-center gap-1.5 transition-all">
-          <i class="fa-solid fa-rotate text-sm"></i>
-          <span>Ubah</span>
-        </button>
-      </div>
-    </section>
-
-    <!-- Input Result Section -->
-    <section class="bg-slate-800 border border-slate-700/60 rounded-2xl p-4 shadow-xl flex flex-col gap-3">
-      <label for="barcode-input" class="text-xs font-semibold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
-        <i class="fa-solid fa-square-poll-vertical"></i> Hasil Pemindaian Kode
-      </label>
-
+      <!-- Input Field -->
       <div class="relative flex items-center">
         <input 
           type="text" 
           id="barcode-input" 
-          placeholder="Hasil barcode akan langsung muncul di sini..." 
+          placeholder="Hasil scan akan muncul di sini..." 
           class="w-full bg-slate-900/90 border border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-white font-mono text-base rounded-xl px-4 py-3.5 pr-12 outline-none transition-all placeholder:text-slate-500 placeholder:font-sans placeholder:text-xs"
         />
         <button id="btn-clear-input" class="absolute right-3 text-slate-500 hover:text-slate-300 p-1.5 rounded-lg transition-colors hidden">
@@ -176,7 +143,7 @@
       <i class="fa-solid fa-circle-info text-indigo-400 text-base mt-0.5 shrink-0"></i>
       <div>
         <p class="font-semibold mb-0.5">Petunjuk Safari / iPhone:</p>
-        <p class="text-indigo-300/80 leading-relaxed">Pastikan Anda telah memberikan izin akses kamera saat diminta. Jika kamera tidak terbuka, periksa pengaturan privasi Safari di iPhone Anda.</p>
+        <p class="text-indigo-300/80 leading-relaxed">Tekan tombol "Scan Kode Batang" di atas untuk membuka pemindai kamera. Berikan izin akses kamera saat diminta oleh Safari.</p>
       </div>
     </div>
 
@@ -198,14 +165,49 @@
       </div>
 
       <!-- History List -->
-      <div id="history-list" class="flex flex-col gap-2 max-h-52 overflow-y-auto pr-1">
-        <div id="empty-history" class="text-center py-6 text-slate-500 text-xs flex flex-col items-center gap-1">
-          <i class="fa-solid fa-inbox text-2xl text-slate-600 mb-1"></i>
-          <span>Belum ada riwayat kode batang</span>
-        </div>
+    <div id="history-list" class="flex flex-col gap-2 max-h-52 overflow-y-auto pr-1">
+      <div id="empty-history" class="text-center py-6 text-slate-500 text-xs flex flex-col items-center gap-1">
+        <i class="fa-solid fa-inbox text-2xl text-slate-600 mb-1"></i>
+        <span>Belum ada riwayat kode batang</span>
       </div>
-    </section>
+    </div>
+  </section>
   </main>
+
+  <!-- Fullscreen Camera Scanner Modal Overlay -->
+  <div id="scanner-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 hidden flex-col justify-between p-4 sm:p-6">
+    <!-- Modal Header -->
+    <div class="flex items-center justify-between max-w-md mx-auto w-full pt-2">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="text-sm font-semibold text-white">Arahkan Kamera ke Kode Batang</span>
+      </div>
+      <button id="btn-close-scanner" class="w-10 h-10 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+    </div>
+
+    <!-- Modal Camera Box Viewport -->
+    <div class="max-w-md mx-auto w-full my-auto flex flex-col gap-3">
+      <div class="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-black border border-slate-700 shadow-2xl">
+        <div id="reader" class="w-full h-full"></div>
+        <div id="scanner-laser" class="scanner-line"></div>
+      </div>
+      <p class="text-center text-xs text-slate-400">Preview akan otomatis menutup begitu kode berhasil terdeteksi.</p>
+    </div>
+
+    <!-- Modal Footer Controls -->
+    <div class="max-w-md mx-auto w-full pb-4 flex items-center justify-between gap-3">
+      <button id="btn-switch-camera" disabled class="flex-1 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 opacity-50 text-slate-200 text-xs font-medium flex items-center justify-center gap-2 transition-all">
+        <i class="fa-solid fa-rotate text-sm"></i>
+        <span>Ganti Kamera</span>
+      </button>
+      <button id="btn-cancel-scan" class="flex-1 py-3 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-400 text-xs font-semibold flex items-center justify-center gap-2 transition-all">
+        <i class="fa-solid fa-ban text-sm"></i>
+        <span>Batal</span>
+      </button>
+    </div>
+  </div>
 
   <!-- Toast Notification Modal -->
   <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 border border-slate-700 text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 pointer-events-none opacity-0 transform translate-y-4 z-50">
@@ -225,8 +227,10 @@
 
     // DOM Elements
     const barcodeInput = document.getElementById('barcode-input');
-    const btnStartCamera = document.getElementById('btn-start-camera');
-    const btnStartText = document.getElementById('btn-start-text');
+    const btnOpenScanner = document.getElementById('btn-open-scanner');
+    const btnCloseScanner = document.getElementById('btn-close-scanner');
+    const btnCancelScan = document.getElementById('btn-cancel-scan');
+    const scannerModal = document.getElementById('scanner-modal');
     const btnSwitchCamera = document.getElementById('btn-switch-camera');
     const btnClearInput = document.getElementById('btn-clear-input');
     const btnCopy = document.getElementById('btn-copy');
@@ -239,8 +243,6 @@
     const historyList = document.getElementById('history-list');
     const emptyHistory = document.getElementById('empty-history');
     const historyCount = document.getElementById('history-count');
-    const cameraPlaceholder = document.getElementById('camera-placeholder');
-    const scannerLaser = document.getElementById('scanner-laser');
     const scanStatus = document.getElementById('scan-status');
 
     // Web Audio Beep Generator (iOS Compatible)
@@ -256,7 +258,7 @@
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(1200, audioCtx.currentTime); // Pitch
+        osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
         gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.15);
         osc.connect(gain);
@@ -294,31 +296,36 @@
     }
 
     // Handle Successful Barcode Scan
-    function onScanSuccess(decodedText, decodedResult) {
-      // Put code into the input field
+    async function onScanSuccess(decodedText, decodedResult) {
+      // 1. Put code into the input field
       barcodeInput.value = decodedText;
       btnClearInput.classList.remove('hidden');
 
-      // Audio & Vibration Feedback
+      // 2. Audio & Vibration Feedback
       playBeepSound();
       triggerVibration();
 
-      // UI status alert
-      scanStatus.textContent = "Kode Terdeteksi!";
-      scanStatus.className = "text-xs text-emerald-400 font-bold animate-bounce";
-      setTimeout(() => {
-        scanStatus.textContent = "Memindai...";
-        scanStatus.className = "text-xs text-indigo-400 font-medium";
-      }, 1500);
-
-      // Save to history
+      // 3. Save to history
       saveToHistory(decodedText, decodedResult?.result?.format?.formatName || 'BARCODE');
 
+      // 4. Automatically close the camera preview modal
+      await stopScanner();
+
+      // 5. Toast feedback
       showToast("Kode berhasil dipindai!");
     }
 
-    // Initialize & Start Camera
+    // Initialize & Start Camera in Pop-up Modal
     async function startScanner() {
+      // Initialize Web Audio Context on user gesture for iOS
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      // Show Modal Overlay
+      scannerModal.classList.remove('hidden');
+      scannerModal.classList.add('flex');
+
       try {
         if (!html5QrCode) {
           html5QrCode = new Html5Qrcode("reader");
@@ -329,6 +336,7 @@
         
         if (!availableCameras || availableCameras.length === 0) {
           showToast("Kamera tidak ditemukan di perangkat ini", "fa-solid fa-circle-xmark text-rose-400");
+          stopScanner();
           return;
         }
 
@@ -342,11 +350,10 @@
         const config = {
           fps: 15,
           qrbox: (viewfinderWidth, viewfinderHeight) => {
-            // Rectangular scanning area optimal for long 1D barcodes
             const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
             return {
               width: Math.floor(viewfinderWidth * 0.85),
-              height: Math.floor(minEdge * 0.45)
+              height: Math.floor(minEdge * 0.5)
             };
           },
           aspectRatio: 1.333333
@@ -357,9 +364,6 @@
           ? { deviceId: { exact: currentCameraId } }
           : { facingMode: "environment" };
 
-        cameraPlaceholder.classList.add('hidden');
-        scannerLaser.classList.remove('hidden');
-
         await html5QrCode.start(
           cameraConfig,
           config,
@@ -368,58 +372,44 @@
         );
 
         isScanning = true;
-        btnStartText.textContent = "Hentikan Pemindai";
-        btnStartCamera.classList.replace('bg-indigo-600', 'bg-rose-600');
-        btnStartCamera.classList.replace('hover:bg-indigo-500', 'hover:bg-rose-500');
         scanStatus.textContent = "Memindai...";
+        scanStatus.className = "text-xs text-indigo-400 font-medium animate-pulse";
 
       } catch (err) {
         console.error("Camera start error:", err);
-        cameraPlaceholder.classList.remove('hidden');
-        scannerLaser.classList.add('hidden');
+        stopScanner();
         showToast("Gagal mengakses kamera. Periksa izin Safari/Browser.", "fa-solid fa-triangle-exclamation text-amber-400");
       }
     }
 
-    // Stop Camera Scanner
+    // Stop Camera Scanner and Close Modal
     async function stopScanner() {
       if (html5QrCode && isScanning) {
         try {
           await html5QrCode.stop();
-          isScanning = false;
-          btnStartText.textContent = "Mulai Pemindaian";
-          btnStartCamera.classList.replace('bg-rose-600', 'bg-indigo-600');
-          btnStartCamera.classList.replace('hover:bg-rose-500', 'hover:bg-indigo-500');
-          cameraPlaceholder.classList.remove('hidden');
-          scannerLaser.classList.add('hidden');
-          scanStatus.textContent = "Nonaktif";
-          scanStatus.className = "text-xs text-slate-400 font-medium";
         } catch (err) {
           console.error("Stop error:", err);
         }
       }
+      isScanning = false;
+      scannerModal.classList.add('hidden');
+      scannerModal.classList.remove('flex');
+      scanStatus.textContent = "Siap Memindai";
+      scanStatus.className = "text-xs text-slate-400 font-medium";
     }
 
-    // Toggle Camera Start / Stop
-    btnStartCamera.addEventListener('click', () => {
-      // Initialize Web Audio Context on user gesture for iOS
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-
-      if (isScanning) {
-        stopScanner();
-      } else {
-        startScanner();
-      }
-    });
+    // Modal Control Event Listeners
+    btnOpenScanner.addEventListener('click', startScanner);
+    btnCloseScanner.addEventListener('click', stopScanner);
+    btnCancelScan.addEventListener('click', stopScanner);
 
     // Switch Camera (Rear <-> Front)
     btnSwitchCamera.addEventListener('click', async () => {
       if (availableCameras.length < 2) return;
 
-      if (isScanning) {
-        await stopScanner();
+      if (isScanning && html5QrCode) {
+        await html5QrCode.stop();
+        isScanning = false;
       }
 
       // Cycle camera index
