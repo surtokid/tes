@@ -59,7 +59,7 @@
     #reader video {
       width: 100% !important;
       height: 100% !important;
-      object-fit: cover !important;
+      object-fit: contain !important;
       border-radius: 1rem;
     }
 
@@ -100,11 +100,21 @@
         <span id="scan-status" class="text-xs text-slate-400 font-medium">Siap Memindai</span>
       </div>
 
-      <!-- Main Trigger Scan Button -->
-      <button id="btn-open-scanner" class="w-full py-4 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-semibold text-base transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-3">
-        <i class="fa-solid fa-camera text-lg"></i>
-        <span>Scan Kode Batang</span>
-      </button>
+      <!-- Main Trigger Scan Button & Photo Fallback -->
+      <div class="flex flex-col gap-2">
+        <button id="btn-open-scanner" class="w-full py-4 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-semibold text-base transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-3">
+          <i class="fa-solid fa-camera text-lg"></i>
+          <span>Scan Kode Batang (Kamera Langsung)</span>
+        </button>
+
+        <!-- Hidden File Input for Native iOS Photo Capture -->
+        <input type="file" id="file-input" accept="image/*" capture="environment" class="hidden">
+        
+        <button id="btn-upload-photo" class="w-full py-2.5 px-3 rounded-xl bg-slate-700/80 hover:bg-slate-700 active:scale-98 text-slate-300 text-xs font-medium border border-slate-600/50 flex items-center justify-center gap-2 transition-all">
+          <i class="fa-solid fa-image text-indigo-400"></i>
+          <span>Alternatif: Foto / Ambil Gambar Kode</span>
+        </button>
+      </div>
 
       <!-- Input Field -->
       <div class="relative flex items-center">
@@ -142,8 +152,11 @@
     <div id="ios-info-box" class="bg-indigo-950/40 border border-indigo-800/40 rounded-xl p-3 flex items-start gap-3 text-xs text-indigo-200">
       <i class="fa-solid fa-circle-info text-indigo-400 text-base mt-0.5 shrink-0"></i>
       <div>
-        <p class="font-semibold mb-0.5">Petunjuk Safari / iPhone:</p>
-        <p class="text-indigo-300/80 leading-relaxed">Tekan tombol "Scan Kode Batang" di atas untuk membuka pemindai kamera. Berikan izin akses kamera saat diminta oleh Safari.</p>
+        <p class="font-semibold mb-0.5">Petunjuk Pengguna iPhone / Safari:</p>
+        <p class="text-indigo-300/80 leading-relaxed">
+          1. Pastikan memberikan izin <strong>"Izinkan Akses Kamera"</strong> saat Safari meminta izin.<br>
+          2. Jika kamera tidak muncul, gunakan tombol <strong>"Alternatif: Foto / Ambil Gambar Kode"</strong> untuk memotret kode batang secara langsung.
+        </p>
       </div>
     </div>
 
@@ -209,6 +222,9 @@
     </div>
   </div>
 
+  <!-- Hidden reader for processing uploaded image files -->
+  <div id="file-reader-temp" class="hidden"></div>
+
   <!-- Toast Notification Modal -->
   <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 border border-slate-700 text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 pointer-events-none opacity-0 transform translate-y-4 z-50">
     <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
@@ -244,6 +260,8 @@
     const emptyHistory = document.getElementById('empty-history');
     const historyCount = document.getElementById('history-count');
     const scanStatus = document.getElementById('scan-status');
+    const btnUploadPhoto = document.getElementById('btn-upload-photo');
+    const fileInput = document.getElementById('file-input');
 
     // Web Audio Beep Generator (iOS Compatible)
     function playBeepSound() {
@@ -315,7 +333,18 @@
       showToast("Kode berhasil dipindai!");
     }
 
-    // Initialize & Start Camera in Pop-up Modal
+    // Fix iOS Safari Video Attributes (playsinline & muted)
+    function applyIosVideoFixes() {
+      const videoEl = document.querySelector("#reader video");
+      if (videoEl) {
+        videoEl.setAttribute("playsinline", "true");
+        videoEl.setAttribute("webkit-playsinline", "true");
+        videoEl.setAttribute("muted", "true");
+        videoEl.play().catch(() => {});
+      }
+    }
+
+    // Initialize & Start Camera in Pop-up Modal (iOS Safari Optimized)
     async function startScanner() {
       // Initialize Web Audio Context on user gesture for iOS
       if (!audioCtx) {
@@ -328,41 +357,47 @@
 
       try {
         if (!html5QrCode) {
-          html5QrCode = new Html5Qrcode("reader");
+          // Enable native iOS BarcodeDetector API if available (iOS 17+)
+          html5QrCode = new Html5Qrcode("reader", { 
+            verbose: false,
+            experimentalFeatures: {
+              useBarCodeDetectorIfSupported: true
+            }
+          });
         }
 
-        // Get Available Cameras
-        availableCameras = await Html5Qrcode.getCameras();
-        
-        if (!availableCameras || availableCameras.length === 0) {
-          showToast("Kamera tidak ditemukan di perangkat ini", "fa-solid fa-circle-xmark text-rose-400");
-          stopScanner();
-          return;
-        }
+        // Formats explicitly defined for 1D and 2D barcodes on iOS
+        const formatsToSupport = [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.ITF,
+          Html5QrcodeSupportedFormats.QR_CODE
+        ];
 
-        // Enable switch camera button if multiple cameras exist
-        if (availableCameras.length > 1) {
-          btnSwitchCamera.disabled = false;
-          btnSwitchCamera.classList.remove('opacity-50');
-        }
-
-        // Config for scanning barcodes (1D & 2D)
+        // Config for scanning barcodes with wider frame for 1D barcodes
         const config = {
-          fps: 15,
+          fps: 20,
+          formatsToSupport: formatsToSupport,
           qrbox: (viewfinderWidth, viewfinderHeight) => {
-            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
             return {
-              width: Math.floor(viewfinderWidth * 0.85),
-              height: Math.floor(minEdge * 0.5)
+              width: Math.floor(viewfinderWidth * 0.9),
+              height: Math.floor(viewfinderHeight * 0.55)
             };
-          },
-          aspectRatio: 1.333333
+          }
         };
 
-        // Prefer Rear Camera on iPhone/Mobile
+        // High resolution video constraints for sharp focus on iPhone
         const cameraConfig = currentCameraId 
           ? { deviceId: { exact: currentCameraId } }
-          : { facingMode: "environment" };
+          : { 
+              facingMode: "environment",
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            };
 
         await html5QrCode.start(
           cameraConfig,
@@ -371,14 +406,28 @@
           () => {} // Silent scan error callback
         );
 
+        // Apply iOS Video attributes after stream starts
+        setTimeout(applyIosVideoFixes, 300);
+
         isScanning = true;
         scanStatus.textContent = "Memindai...";
         scanStatus.className = "text-xs text-indigo-400 font-medium animate-pulse";
 
+        // Query cameras after permission is granted
+        try {
+          availableCameras = await Html5Qrcode.getCameras();
+          if (availableCameras && availableCameras.length > 1) {
+            btnSwitchCamera.disabled = false;
+            btnSwitchCamera.classList.remove('opacity-50');
+          }
+        } catch (e) {
+          console.warn("Camera enum error:", e);
+        }
+
       } catch (err) {
         console.error("Camera start error:", err);
         stopScanner();
-        showToast("Gagal mengakses kamera. Periksa izin Safari/Browser.", "fa-solid fa-triangle-exclamation text-amber-400");
+        showToast("Kamera gagal diakses. Gunakan opsi 'Foto / Ambil Gambar'.", "fa-solid fa-triangle-exclamation text-amber-400");
       }
     }
 
@@ -397,6 +446,40 @@
       scanStatus.textContent = "Siap Memindai";
       scanStatus.className = "text-xs text-slate-400 font-medium";
     }
+
+    // Handle Photo Upload / Capture Scan (Fail-safe for iOS)
+    btnUploadPhoto.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', async (e) => {
+      if (e.target.files.length === 0) return;
+      const file = e.target.files[0];
+
+      scanStatus.textContent = "Memproses gambar...";
+      scanStatus.className = "text-xs text-amber-400 font-medium animate-pulse";
+
+      try {
+        const tempScanner = new Html5Qrcode("file-reader-temp");
+        const decodedText = await tempScanner.scanFile(file, true);
+
+        // Success
+        barcodeInput.value = decodedText;
+        btnClearInput.classList.remove('hidden');
+        playBeepSound();
+        triggerVibration();
+        saveToHistory(decodedText, 'FOTO');
+        showToast("Kode dari gambar berhasil terbaca!");
+        tempScanner.clear();
+      } catch (err) {
+        console.error("File scan error:", err);
+        showToast("Tidak dapat menemukan kode batang pada foto ini.", "fa-solid fa-circle-xmark text-rose-400");
+      } finally {
+        scanStatus.textContent = "Siap Memindai";
+        scanStatus.className = "text-xs text-slate-400 font-medium";
+        fileInput.value = "";
+      }
+    });
 
     // Modal Control Event Listeners
     btnOpenScanner.addEventListener('click', startScanner);
