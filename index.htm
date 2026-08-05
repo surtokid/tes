@@ -387,17 +387,17 @@
               width: Math.floor(viewfinderWidth * 0.9),
               height: Math.floor(viewfinderHeight * 0.55)
             };
+          },
+          videoConstraints: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
           }
         };
 
-        // High resolution video constraints for sharp focus on iPhone
+        // Camera selection object (must contain exactly 1 key for html5-qrcode validation)
         const cameraConfig = currentCameraId 
           ? { deviceId: { exact: currentCameraId } }
-          : { 
-              facingMode: "environment",
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
-            };
+          : { facingMode: "environment" };
 
         await html5QrCode.start(
           cameraConfig,
